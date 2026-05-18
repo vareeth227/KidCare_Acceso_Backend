@@ -17,4 +17,7 @@ public class TokenMedicoResponseDTO {
 
     // Estado del token: activo, expirado o revocado
     private String estadoToken;
+
+    // Imagen QR en Base64 (PNG) que apunta a urlAcceso
+    private String qrCodeBase64;
 }

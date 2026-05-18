@@ -13,7 +13,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.kidcare.acceso_service.dto.VerificarAccesoResponseDTO;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 import org.springframework.web.client.RestTemplate;
+import java.io.ByteArrayOutputStream;
 import java.security.SecureRandom;
 import java.util.Map;
 import java.time.LocalDate;
@@ -55,7 +60,7 @@ public class TokenMedicoService {
         List<TokenMedico> tokensActivos = tokenMedicoRepository
                 .findByAccesoIdAccesoAndEstadoToken(acceso.getIdAcceso(), "activo");
         tokensActivos.forEach(t -> {
-            t.setEstadoToken("revocado");
+            t.setEstadoToken("expirado");
             tokenMedicoRepository.save(t);
         });
 
@@ -84,13 +89,27 @@ public class TokenMedicoService {
         // Registra el evento de creación en el log
         registrarLog(tokenMedico, "CREACION", null);
 
-        // Retorna el DTO con los datos del enlace
+        // Retorna el DTO con los datos del enlace, incluyendo QR en Base64
         TokenMedicoResponseDTO response = new TokenMedicoResponseDTO();
         response.setToken(tokenValue);
         response.setUrlAcceso(urlBase + tokenValue);
         response.setNombreMedico(dto.getNombreMedico());
         response.setEstadoToken("activo");
+        response.setQrCodeBase64(generarQrBase64(urlBase + tokenValue));
         return response;
+    }
+
+    // Genera un QR code como imagen PNG codificada en Base64
+    private String generarQrBase64(String contenido) {
+        try {
+            QRCodeWriter writer = new QRCodeWriter();
+            BitMatrix matrix = writer.encode(contenido, BarcodeFormat.QR_CODE, 300, 300);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            MatrixToImageWriter.writeToStream(matrix, "PNG", out);
+            return Base64.getEncoder().encodeToString(out.toByteArray());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // Verifica que el médico esté dentro del radio de 100 metros del tutor
