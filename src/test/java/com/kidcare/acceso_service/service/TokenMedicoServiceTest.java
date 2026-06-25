@@ -116,7 +116,7 @@ class TokenMedicoServiceTest {
 
         assertThatThrownBy(() -> tokenMedicoService.verificarProximidad(request("tok123", "37.0", "-4.0")))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("activo");
+                .hasMessageContaining("revocado");
     }
 
     @Test

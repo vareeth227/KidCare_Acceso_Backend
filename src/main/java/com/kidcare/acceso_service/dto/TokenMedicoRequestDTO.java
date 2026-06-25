@@ -31,4 +31,9 @@ public class TokenMedicoRequestDTO {
 
     // IDs de observaciones a compartir. NULL o vacío = todas.
     private List<String> observacionIds;
+
+    // Datos del menor para mostrar en la vista web del médico
+    private String nombreMenor;
+    private String nombreTutor;
+    private Integer edadMenor;
 }

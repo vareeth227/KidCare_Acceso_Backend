@@ -13,8 +13,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.kidcare.acceso_service.dto.VerificarAccesoResponseDTO;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
 import java.security.SecureRandom;
+import java.util.HashMap;
 import java.util.Map;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -86,6 +90,9 @@ public class TokenMedicoService {
         if (dto.getObservacionIds() != null && !dto.getObservacionIds().isEmpty()) {
             tokenMedico.setObservacionIds(String.join(",", dto.getObservacionIds()));
         }
+        tokenMedico.setNombreMenor(dto.getNombreMenor());
+        tokenMedico.setNombreTutor(dto.getNombreTutor());
+        tokenMedico.setEdadMenor(dto.getEdadMenor());
         tokenMedicoRepository.save(tokenMedico);
 
         // Registra el evento de creación en el log
@@ -109,7 +116,10 @@ public class TokenMedicoService {
         // Verifica que el token esté activo
         if (!tokenMedico.getEstadoToken().equals("activo")) {
             registrarLog(tokenMedico, "ERROR", null);
-            throw new RuntimeException("El enlace no está activo");
+            if ("revocado".equals(tokenMedico.getEstadoToken())) {
+                throw new RuntimeException("El enlace fue revocado por el tutor");
+            }
+            throw new RuntimeException("El enlace ha expirado o no está disponible");
         }
 
         // Verifica que el token no haya expirado (20 minutos)
@@ -180,22 +190,58 @@ public class TokenMedicoService {
         response.setIdMenor(idMenor);
         response.setNombreMedico(tokenMedico.getNombreMedico());
         response.setExpiracion(tokenMedico.getFechaCreacion().plusMinutes(20).toString());
+        response.setNombreMenor(tokenMedico.getNombreMenor());
+        response.setNombreTutor(tokenMedico.getNombreTutor());
+        response.setEdadMenor(tokenMedico.getEdadMenor());
+        if (tokenMedico.getFechaCreacion() != null) {
+            response.setHoraGenerado(tokenMedico.getFechaCreacion().toString());
+        }
         if (tokenMedico.getObservacionIds() != null && !tokenMedico.getObservacionIds().isBlank()) {
             response.setObservacionIds(Arrays.asList(tokenMedico.getObservacionIds().split(",")));
         }
 
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Intenta obtener el historial existente
+        String resumenTexto = null;
         try {
-            RestTemplate restTemplate = new RestTemplate();
             String url = historialServiceUrl + "/api/historial/medico/" + idMenor;
             @SuppressWarnings("unchecked")
             Map<String, Object> historial = restTemplate.getForObject(url, Map.class);
             if (historial != null && historial.get("resumen") != null) {
-                response.setResumen(historial.get("resumen").toString());
-                response.setTipo("resumen");
-            } else {
-                response.setTipo("sin_historial");
+                resumenTexto = historial.get("resumen").toString();
             }
         } catch (Exception e) {
+            // No existe historial todavía — lo generamos a continuación
+        }
+
+        // Si no hay historial y el token tiene observaciones guardadas, genera uno ahora
+        if (resumenTexto == null &&
+                tokenMedico.getObservacionIds() != null &&
+                !tokenMedico.getObservacionIds().isBlank()) {
+            try {
+                List<String> ids = Arrays.asList(tokenMedico.getObservacionIds().split(","));
+                Map<String, Object> genBody = new HashMap<>();
+                genBody.put("idMenor", idMenor);
+                genBody.put("idInteracciones", ids);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpEntity<Map<String, Object>> req = new HttpEntity<>(genBody, headers);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> genResp = restTemplate.postForObject(
+                        historialServiceUrl + "/api/historial/interno/generar", req, Map.class);
+                if (genResp != null && genResp.get("resumen") != null) {
+                    resumenTexto = genResp.get("resumen").toString();
+                }
+            } catch (Exception ex) {
+                // Generación fallida — el médico verá "sin resumen"
+            }
+        }
+
+        if (resumenTexto != null) {
+            response.setResumen(resumenTexto);
+            response.setTipo("resumen");
+        } else {
             response.setTipo("sin_historial");
         }
 

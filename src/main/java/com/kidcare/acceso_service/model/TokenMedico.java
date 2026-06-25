@@ -56,4 +56,16 @@ public class TokenMedico {
     // IDs de observaciones seleccionadas, separados por coma. NULL = todas.
     @Column(name = "observacion_ids", columnDefinition = "TEXT")
     private String observacionIds;
+
+    // Nombre del menor (enviado por el tutor al generar el enlace)
+    @Column(name = "nombre_menor")
+    private String nombreMenor;
+
+    // Nombre del tutor que generó el enlace
+    @Column(name = "nombre_tutor")
+    private String nombreTutor;
+
+    // Edad del menor en años al momento de generar el enlace
+    @Column(name = "edad_menor")
+    private Integer edadMenor;
 }

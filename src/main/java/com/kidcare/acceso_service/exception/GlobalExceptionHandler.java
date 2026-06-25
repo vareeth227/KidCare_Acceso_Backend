@@ -26,7 +26,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
         Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        String msg = ex.getMessage() != null ? ex.getMessage() : "";
+        error.put("error", msg);
+
+        HttpStatus status;
+        if (msg.contains("revocado")) {
+            status = HttpStatus.FORBIDDEN;           // 403 → frontend: revoked
+        } else if (msg.contains("radio") || msg.contains("metros") || msg.contains("km")) {
+            status = HttpStatus.FORBIDDEN;           // 403 → frontend: geo
+        } else if (msg.contains("expirado") || msg.contains("expiró") ||
+                   msg.contains("no encontrado") || msg.contains("no está disponible")) {
+            status = HttpStatus.NOT_FOUND;           // 404 → frontend: expired
+        } else {
+            status = HttpStatus.BAD_REQUEST;         // 400 → frontend: expired (default)
+        }
+        return ResponseEntity.status(status).body(error);
     }
 }

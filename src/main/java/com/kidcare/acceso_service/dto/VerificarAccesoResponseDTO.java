@@ -11,6 +11,11 @@ public class VerificarAccesoResponseDTO {
     private String resumen;
     private String tipo;
     private String expiracion;
-    // null = el tutor autorizó todas; lista = solo estas observaciones
     private List<String> observacionIds;
+    // Datos del menor para la vista web del médico
+    private String nombreMenor;
+    private String nombreTutor;
+    private Integer edadMenor;
+    // Hora exacta en que el tutor generó el enlace
+    private String horaGenerado;
 }
